@@ -4,7 +4,9 @@
 
 use crate::error::OllamaError;
 use futures::Stream;
+use reqwest::header::{HeaderMap, HeaderValue};
 use reqwest::Client;
+use std::env::var;
 use std::pin::Pin;
 use std::time::Duration;
 use tokio_stream::StreamExt;
@@ -21,9 +23,17 @@ pub struct OllamaClient {
 impl OllamaClient {
     /// Create a new Ollama client
     pub fn new(base_url: impl Into<String>, timeout_secs: u64) -> Result<Self, OllamaError> {
+        let mut headers = HeaderMap::new();
+        let user = var("USERNAME").unwrap_or(var("USER").unwrap_or_default());
+        if !user.is_empty() {
+            headers.insert("X-User-ID", HeaderValue::from_str(user.as_str()).unwrap());
+
+        }
         let client = Client::builder()
             .timeout(Duration::from_secs(timeout_secs))
+            .default_headers(headers)
             .build()?;
+
 
         Ok(Self {
             client,
