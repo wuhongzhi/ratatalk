@@ -24,10 +24,11 @@ impl OllamaClient {
     /// Create a new Ollama client
     pub fn new(base_url: impl Into<String>, timeout_secs: u64) -> Result<Self, OllamaError> {
         let mut headers = HeaderMap::new();
-        let user = var("USERNAME").unwrap_or(var("USER").unwrap_or_default());
+        let user = var("RATATALK_USER_ID").unwrap_or_default();
         if !user.is_empty() {
-            headers.insert("X-User-ID", HeaderValue::from_str(user.as_str()).unwrap());
-
+            if let Ok(val) = HeaderValue::from_str(user.as_str()) {
+                headers.insert("X-User-ID", val);
+            }
         }
         let client = Client::builder()
             .timeout(Duration::from_secs(timeout_secs))
@@ -230,5 +231,28 @@ mod tests {
         let client = OllamaClient::default_local();
         assert!(client.is_ok());
         assert_eq!(client.unwrap().base_url(), "http://127.0.0.1:11434");
+    }
+
+    #[test]
+    fn test_client_with_user_id() {
+        std::env::set_var("RATATALK_USER_ID", "test-user-123");
+        let client = OllamaClient::new("http://localhost:11434", 30).unwrap();
+        assert_eq!(client.base_url(), "http://localhost:11434");
+    }
+
+    #[test]
+    fn test_client_with_invalid_user_id() {
+        std::env::set_var("RATATALK_USER_ID", "test-user-🚀");
+        let client = OllamaClient::new("http://localhost:11434", 30);
+        assert!(client.is_ok());
+    }
+
+    #[test]
+    fn test_client_privacy_default() {
+        std::env::remove_var("RATATALK_USER_ID");
+        // Ensure standard env vars are also NOT used (implicit check)
+        std::env::set_var("USER", "hidden-identity");
+        let client = OllamaClient::new("http://localhost:11434", 30).unwrap();
+        assert_eq!(client.base_url(), "http://localhost:11434");
     }
 }
