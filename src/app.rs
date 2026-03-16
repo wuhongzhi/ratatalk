@@ -4,6 +4,7 @@
 
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
+use unicode_width::UnicodeWidthChar;
 use uuid::Uuid;
 
 use crate::config::Config;
@@ -245,10 +246,10 @@ pub struct AppState {
     pub selected_model_idx: usize,
     
     /// User input buffer
-    pub input: String,
+    input: Vec<char>,
     
     /// Cursor position in input
-    pub cursor_position: usize,
+    cursor_position: usize,
     
     /// Current input mode
     pub input_mode: InputMode,
@@ -296,7 +297,7 @@ impl AppState {
             sessions: vec![ChatSession::with_default_name(&default_model)],
             active_session_idx: 0,
             selected_model_idx: 0,
-            input: String::new(),
+            input: Vec::new(),
             cursor_position: 0,
             input_mode: InputMode::Normal,
             focus: FocusArea::Input,
@@ -400,6 +401,41 @@ impl AppState {
         }
     }
 
+    /// get the cursor position
+    pub fn get_cursor_position(&self) -> usize {
+        self.input[..self.cursor_position]
+            .iter()
+            .map(|c| c.width_cjk().unwrap_or(1))
+            .sum()
+    }
+
+    /// split the input at cursor
+    pub fn split_at_cursor(&self, mut width: u16) -> (String, String) {
+        let shown = &self.input[..self.cursor_position];
+        let mut it = shown.iter().enumerate().rev();
+        let offset = loop {
+            match it.next() {
+                Some((i, c)) => {
+                    let char_width = c.width_cjk().unwrap_or(1) as u16;
+                    if char_width < width - 1 {
+                        width -= char_width;
+                    } else {
+                        break i;
+                    }
+                }
+                None => break 0,
+            }
+        };
+        let mut before = String::new();
+        before.extend(&shown[offset..]);
+
+        let mut after = String::new();
+        if offset == 0 {
+            after.extend(&self.input[self.cursor_position..]);
+        }
+        (before, after)
+    }
+
     /// Insert character at cursor position
     pub fn insert_char(&mut self, c: char) {
         self.input.insert(self.cursor_position, c);
@@ -453,9 +489,17 @@ impl AppState {
 
     /// Take and clear input, returning the content
     pub fn take_input(&mut self) -> String {
-        let input = std::mem::take(&mut self.input);
         self.cursor_position = 0;
-        input
+        let mut str = String::new();
+        str.extend(std::mem::take(&mut self.input));
+        str
+    }
+
+    /// conver input into String
+    pub fn clone_input(&self) -> String {
+        let mut str = String::new();
+        str.extend(self.input.iter());
+        str
     }
 
     /// Set status message
@@ -623,10 +667,10 @@ mod tests {
         state.insert_char('h');
         state.insert_char('i');
         
-        assert_eq!(state.input, "hi");
-        assert_eq!(state.cursor_position, 2);
+        assert_eq!(state.clone_input(), "hi");
+        assert_eq!(state.get_cursor_position(), 2);
         
         state.delete_char();
-        assert_eq!(state.input, "h");
+        assert_eq!(state.clone_input(), "h");
     }
 }
