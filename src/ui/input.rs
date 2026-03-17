@@ -41,7 +41,7 @@ pub fn render_input(frame: &mut Frame, state: &AppState, area: Rect) {
     // Build input line with cursor
     let input_text = if is_editing {
         // Show cursor
-        let (before, after) = state.split_at_cursor(inner_area.width);
+        let (before, after) = state.split_at_cursor(inner_area.width as usize);
 
         Line::from(vec![
             Span::raw(before),
@@ -65,13 +65,13 @@ pub fn render_input(frame: &mut Frame, state: &AppState, area: Rect) {
     frame.render_widget(paragraph, area);
 
     // Set cursor position for terminal cursor if editing
-    if is_editing {
+    if is_editing && inner_area.height > 0 {
         // Calculate cursor position within the visible area
         let mut inner_width = inner_area.width as usize;
-        if inner_width > 2 {
+        if inner_width > 1 {
             inner_width -= 1;
         }
-        let cursor_x = inner_area.x + state.get_cursor_position().min(inner_width) as u16;
+        let cursor_x = inner_area.x + state.get_cursor(inner_width) as u16;
         let cursor_y = inner_area.y;
         frame.set_cursor_position((cursor_x, cursor_y));
     }

@@ -189,7 +189,7 @@ fn wrap_text(text: &str, max_width: usize) -> Vec<String> {
             let char_width = current_char.width_cjk().unwrap_or(1);
             let current_alphanumeric = current_char.is_ascii_alphanumeric();
             let hyphen = last_alphanumeric && current_alphanumeric;
-            if current_length + char_width >= max_width - if hyphen { 3 } else { 1 } {
+            if current_length + char_width >= max_width - if hyphen { 2 } else { 1 } {
                 if !hyphen {
                     lines.push(current_line);
                     current_line = String::new();
